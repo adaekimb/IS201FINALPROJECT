@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SymbolSweeper</title>
+  <style>
+    body {
+      font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+      background: #f5f5f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .game-container {
+      text-align: center;
+    }
+    h1 {
+      margin-bottom: 0.3rem;
+    }
+    #board {
+      display: grid;
+      grid-template-columns: repeat(10, 40px);
+      grid-gap: 2px;
+      margin-top: 1rem;
+    }
+    .cell {
+      width: 40px;
+      height: 40px;
+      background: #ddd;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      font-size: 20px;
+      font-weight: bold;
+      border-radius: 4px;
+      user-select: none;
+    }
+    .cell.revealed {
+      background: #fff;
+      cursor: default;
+    }
+    .cell.mine {
+      background: #f44336;
+      color: white;
+    }
+
+    /* 🔽 Link button styling */
+    .link-container {
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    .game-link {
+      text-decoration: none;
+      background: #82a3c7;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 5px;
+      font-weight: bold;
+      display: inline-block;
+      transition: background 0.2s ease;
+    }
+
+    .game-link:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1>SymbolSweeper</h1>
+    <p>Crack the Code.  Don't explode!</p>
+    
+    <div id="board"></div>
+
+    <!-- 🔗 Button link below the board -->
+    <div class="link-container">
+      <a href="scratch.html" target="_blank" class="game-link">
+        Back to Home
+      </a>
+    </div>
+  </div>
+
+  <script>
+    const rows = 10;
+    const cols = 10;
+    const mineCount = 15;
+    const symbols = ["★", "☂", "☠", "♣", "♛", "⚡", "❤", "☀", "⚓"];
+    let board = [];
+    let symbolMap = {};
+
+    function generateBoard() {
+      board = [];
+      symbolMap = {};
+      const container = document.getElementById("board");
+      container.innerHTML = "";
+      container.style.gridTemplateColumns = `repeat(${cols}, 40px)`;
+
+      // Randomize symbol mapping
+      const shuffled = [...symbols].sort(() => 0.5 - Math.random());
+      for (let i = 1; i <= 8; i++) {
+        symbolMap[i] = shuffled[i - 1];
+      }
+
+      // Initialize board
+      for (let r = 0; r < rows; r++) {
+        const row = [];
+        for (let c = 0; c < cols; c++) {
+          row.push({ mine: false, revealed: false, adjacent: 0 });
+        }
+        board.push(row);
+      }
+
+      // Place mines
+      let minesPlaced = 0;
+      while (minesPlaced < mineCount) {
+        const r = Math.floor(Math.random() * rows);
+        const c = Math.floor(Math.random() * cols);
+        if (!board[r][c].mine) {
+          board[r][c].mine = true;
+          minesPlaced++;
+        }
+      }
+
+      // Count adjacent mines
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (board[r][c].mine) continue;
+          let count = 0;
+          for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+              const nr = r + dr;
+              const nc = c + dc;
+              if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && board[nr][nc].mine) {
+                count++;
+              }
+            }
+          }
+          board[r][c].adjacent = count;
+        }
+      }
+
+      // Render board
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const cell = document.createElement("div");
+          cell.classList.add("cell");
+          cell.dataset.row = r;
+          cell.dataset.col = c;
+          cell.addEventListener("click", handleClick);
+          container.appendChild(cell);
+        }
+      }
+    }
+
+    function handleClick(e) {
+      const cellEl = e.target;
+      const r = parseInt(cellEl.dataset.row);
+      const c = parseInt(cellEl.dataset.col);
+      const cell = board[r][c];
+
+      if (cell.revealed) return;
+
+      cell.revealed = true;
+      cellEl.classList.add("revealed");
+
+      if (cell.mine) {
+        cellEl.textContent = "💣";
+        cellEl.classList.add("mine");
+        alert("Boom! You hit a mine. Restarting game.");
+        generateBoard();
+        return;
+      }
+
+      if (cell.adjacent > 0) {
+        cellEl.textContent = symbolMap[cell.adjacent];
+      } else {
+        revealEmpty(r, c);
+      }
+    }
+
+    function revealEmpty(r, c) {
+      const stack = [[r, c]];
+      while (stack.length > 0) {
+        const [row, col] = stack.pop();
+        const cell = board[row][col];
+        const cellEl = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+
+        if (cell.revealed) continue;
+
+        cell.revealed = true;
+        cellEl.classList.add("revealed");
+
+        if (cell.adjacent > 0) {
+          cellEl.textContent = symbolMap[cell.adjacent];
+        } else {
+          for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+              const nr = row + dr;
+              const nc = col + dc;
+              if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+                if (!board[nr][nc].revealed && !board[nr][nc].mine) {
+                  stack.push([nr, nc]);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Start game
+    generateBoard();
+  </script>
+</body>
+</html>
